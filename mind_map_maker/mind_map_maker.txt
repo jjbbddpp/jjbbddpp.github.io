@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>无限画布 - 完美最终版（带持久化）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100vw; height:100vh; overflow:hidden; background:#f5f7fa; cursor:grab; user-select:none; }
+  body:active { cursor:grabbing; }
+
+  #viewport {
+    position:absolute; left:0; top:0; width:100%; height:100%;
+    transform-origin:0 0;
+  }
+
+  #connectionLayer {
+    position:absolute; left:0; top:0; width:100vw; height:100vh;
+    pointer-events:none;
+  }
+
+  .box {
+    position:absolute; width:280px; min-height:70px; padding:14px;
+    background:#fff; border:2px solid #409eff; border-radius:10px;
+    outline:none; font-size:15px; line-height:1.6; cursor:grab;
+    z-index:10;
+    font-weight:400;
+    color:#333;
+  }
+  .box:active { cursor:grabbing; }
+  .box:focus { border-color:#ff9500; }
+  .box.connecting { border-color: #ff9500; }
+
+  #contextMenu {
+    position:absolute; width:160px; background:#fff; border:1px solid #ccc;
+    border-radius:6px; box-shadow:0 2px 10px rgba(0,0,0,0.2);
+    z-index:9999; display:none;
+  }
+  .menuItem { padding:8px 12px; cursor:pointer; }
+  .menuItem:hover { background:#e8f3ff; }
+  .menuDivider { height:1px; background:#eee; margin:4px 0; }
+
+  .subMenu {
+    position:absolute; left:100%; top:0; width:180px; background:#fff;
+    border:1px solid #ccc; border-radius:6px; box-shadow:0 2px 10px rgba(0,0,0,0.2);
+    display:none;
+  }
+  .menuItem.hasSubMenu { position:relative; }
+  .menuItem.hasSubMenu:hover .subMenu { display:block; }
+
+  .connection { stroke:#409eff; stroke-width:2; fill:none; stroke-linecap:round; }
+  
+  /* 新增：导出/导入按钮样式 */
+  .save-controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    gap: 10px;
+  }
+  .save-btn {
+    padding: 8px 12px;
+    background: #409eff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .save-btn:hover {
+    background: #337ecc;
+  }
+</style>
+</head>
+<body>
+<!-- 新增：导出/导入按钮 -->
+<div class="save-controls">
+  <button class="save-btn" id="exportBtn">📤 导出数据</button>
+  <button class="save-btn" id="importBtn">📥 导入数据</button>
+  <button class="save-btn" id="clearBtn" style="background: #ff4444;">🗑️ 清空数据</button>
+</div>
+
+<div id="viewport">
+  <div class="box" style="top:120px; left:120px" contenteditable></div>
+  <div class="box" style="top:240px; left:120px" contenteditable></div>
+</div>
+<svg id="connectionLayer"></svg>
+
+<div id="contextMenu">
+  <div class="menuItem" id="createBox">➕ 创建框</div>
+  <div class="menuDivider"></div>
+  <div class="menuItem" id="connectBox">🔗 连线到此框</div>
+  <div class="menuItem" id="deleteBox" style="color:#ff4444">🗑️ 删除框</div>
+  <div class="menuDivider"></div>
+
+  <!-- 单个盒子的字体设置（仅右键盒子时显示） -->
+  <div class="menuItem hasSubMenu" id="fontSettings">
+    ✏️ 字体设置（当前框）
+    <div class="subMenu">
+      <div class="menuItem" id="fontSize">🔤 字体大小</div>
+      <div class="menuItem" id="fontWeight">⚖️ 字体粗细</div>
+      <div class="menuItem" id="fontColor">🎨 字体颜色</div>
+    </div>
+  </div>
+
+  <!-- 新增：全局字体设置（右键空白/盒子都显示） -->
+  <div class="menuItem hasSubMenu" id="globalFontSettings">
+    🅰️ 字体设置（全局）
+    <div class="subMenu">
+      <div class="menuItem" id="globalFontSize">🔤 全局字体大小</div>
+      <div class="menuItem" id="globalFontWeight">⚖️ 全局字体粗细</div>
+      <div class="menuItem" id="globalFontColor">🎨 全局字体颜色</div>
+    </div>
+  </div>
+
+  <div class="menuItem" id="undoBtn" style="color:#ff6b6b;">↩️ 返回上一步</div>
+</div>
+
+<script>
+const viewport = document.getElementById('viewport');
+const connectionLayer = document.getElementById('connectionLayer');
+const contextMenu = document.getElementById('contextMenu');
+const createBoxItem = document.getElementById('createBox');
+const connectBoxItem = document.getElementById('connectBox');
+const deleteBoxItem = document.getElementById('deleteBox');
+const undoBtn = document.getElementById('undoBtn');
+// 单个盒子字体设置
+const fontSizeItem = document.getElementById('fontSize');
+const fontWeightItem = document.getElementById('fontWeight');
+const fontColorItem = document.getElementById('fontColor');
+const fontSettings = document.getElementById('fontSettings');
+// 新增：全局字体设置DOM
+const globalFontSettings = document.getElementById('globalFontSettings');
+const globalFontSize = document.getElementById('globalFontSize');
+const globalFontWeight = document.getElementById('globalFontWeight');
+const globalFontColor = document.getElementById('globalFontColor');
+
+// 新增：导出/导入/清空按钮
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+let menuX = 0, menuY = 0;
+let targetBox = null;
+let connectFrom = null;
+const MAGNET_THRESHOLD = 10;
+let connections = []; // 存储 { fromId, toId } 而非 DOM 引用
+let isViewportDragging = false;
+let lastX, lastY;
+
+let history = [];
+
+// ===================== 新增：持久化核心函数 =====================
+// 1. 保存所有数据到localStorage
+function saveToLocalStorage() {
+  // 收集框的信息
+  const boxes = Array.from(document.querySelectorAll('.box')).map(b => ({
+    left: b.style.left,
+    top: b.style.top,
+    content: b.innerHTML,
+    id: b.dataset.id,
+    fontSize: b.style.fontSize,
+    fontWeight: b.style.fontWeight,
+    color: b.style.color
+  }));
+  
+  // 收集视图状态（缩放、偏移）
+  const viewState = {
+    scale,
+    offsetX,
+    offsetY
+  };
+  
+  // 收集连线
+  const savedConnections = [...connections];
+  
+  // 组合成完整数据并存储
+  const canvasData = {
+    boxes,
+    connections: savedConnections,
+    viewState
+  };
+  
+  localStorage.setItem('canvasData', JSON.stringify(canvasData));
+}
+
+// 2. 从localStorage加载数据
+function loadFromLocalStorage() {
+  const savedData = localStorage.getItem('canvasData');
+  if (!savedData) return false;
+  
+  try {
+    const { boxes, connections: savedConnections, viewState } = JSON.parse(savedData);
+    
+    // 清空现有内容
+    document.querySelectorAll('.box').forEach(b => b.remove());
+    connections = [];
+    
+    // 恢复视图状态
+    if (viewState) {
+      scale = viewState.scale || 1;
+      offsetX = viewState.offsetX || 0;
+      offsetY = viewState.offsetY || 0;
+      updateViewport();
+    }
+    
+    // 恢复框
+    const boxMap = new Map();
+    boxes.forEach(data => {
+      const box = document.createElement('div');
+      box.className = 'box';
+      box.contentEditable = true;
+      box.style.left = data.left;
+      box.style.top = data.top;
+      box.innerHTML = data.content;
+      box.style.fontSize = data.fontSize || '15px';
+      box.style.fontWeight = data.fontWeight || '400';
+      box.style.color = data.color || '#333';
+      box.dataset.id = data.id || Date.now().toString();
+      viewport.appendChild(box);
+      makeDraggable(box);
+      boxMap.set(data.id, box);
+    });
+    
+    // 恢复连线
+    connections = savedConnections || [];
+    redrawAllConnections();
+    
+    return true;
+  } catch (e) {
+    console.error('加载本地数据失败：', e);
+    return false;
+  }
+}
+
+// 3. 导出数据为JSON文件
+function exportData() {
+  const savedData = localStorage.getItem('canvasData');
+  if (!savedData) {
+    alert('暂无数据可导出！');
+    return;
+  }
+  
+  const blob = new Blob([savedData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `画布数据_${new Date().toLocaleString().replace(/[/: ]/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 4. 导入JSON文件恢复数据
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+    alert('请选择JSON格式的文件！');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const canvasData = JSON.parse(e.target.result);
+      localStorage.setItem('canvasData', JSON.stringify(canvasData));
+      loadFromLocalStorage();
+      alert('数据导入成功！');
+    } catch (e) {
+      alert('导入失败：文件格式错误！');
+      console.error(e);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// 5. 清空本地数据
+function clearLocalData() {
+  if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+    localStorage.removeItem('canvasData');
+    // 重置界面到初始状态
+    document.querySelectorAll('.box').forEach(b => b.remove());
+    connections = [];
+    scale = 1;
+    offsetX = 0;
+    offsetY = 0;
+    updateViewport();
+    redrawAllConnections();
+    // 重新创建初始框
+    const initBox1 = document.createElement('div');
+    initBox1.className = 'box';
+    initBox1.contentEditable = true;
+    initBox1.style.left = '120px';
+    initBox1.style.top = '120px';
+    initBox1.dataset.id = 'init-0';
+    viewport.appendChild(initBox1);
+    makeDraggable(initBox1);
+    
+    const initBox2 = document.createElement('div');
+    initBox2.className = 'box';
+    initBox2.contentEditable = true;
+    initBox2.style.left = '120px';
+    initBox2.style.top = '240px';
+    initBox2.dataset.id = 'init-1';
+    viewport.appendChild(initBox2);
+    makeDraggable(initBox2);
+    
+    saveToLocalStorage(); // 保存初始状态
+  }
+}
+// ===================== 持久化函数结束 =====================
+
+function saveHistory() {
+  // 1. 保存所有框的信息（含唯一ID）
+  const boxes = Array.from(document.querySelectorAll('.box')).map(b => ({
+    left: b.style.left,
+    top: b.style.top,
+    content: b.innerHTML,
+    id: b.dataset.id,
+    fontSize: b.style.fontSize,
+    fontWeight: b.style.fontWeight,
+    color: b.style.color
+  }));
+  // 2. 保存连线（转为ID，而非DOM引用）
+  const savedConnections = connections.map(c => ({
+    fromId: c.fromId,
+    toId: c.toId
+  }));
+  history.push({ boxes, connections: savedConnections });
+  if (history.length > 30) history.shift();
+}
+
+function undo() {
+  if (history.length === 0) { alert('无操作可撤销'); return; }
+  const last = history.pop();
+  
+  // 清空现有框和连线
+  document.querySelectorAll('.box').forEach(b => b.remove());
+  connections = [];
+  
+  // 重建框
+  const boxMap = new Map(); // 映射 ID -> 新DOM节点
+  last.boxes.forEach(data => {
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.contentEditable = true;
+    box.style.left = data.left;
+    box.style.top = data.top;
+    box.innerHTML = data.content;
+    box.style.fontSize = data.fontSize || '15px';
+    box.style.fontWeight = data.fontWeight || '400';
+    box.style.color = data.color || '#333';
+    box.dataset.id = data.id;
+    viewport.appendChild(box);
+    makeDraggable(box);
+    boxMap.set(data.id, box);
+  });
+  
+  // 重建连线（根据ID关联新DOM节点）
+  last.connections.forEach(c => {
+    const fromBox = boxMap.get(c.fromId);
+    const toBox = boxMap.get(c.toId);
+    if (fromBox && toBox) {
+      connections.push({ fromId: c.fromId, toId: c.toId });
+    }
+  });
+  
+  redrawAllConnections();
+  // 撤销后同步保存到本地
+  saveToLocalStorage();
+}
+
+document.addEventListener('mousedown', e => {
+  if (e.target.classList.contains('box')) return;
+  isViewportDragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+document.addEventListener('mousemove', e => {
+  if (!isViewportDragging) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  offsetX += dx;
+  offsetY += dy;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  updateViewport();
+  redrawAllConnections();
+});
+document.addEventListener('mouseup', () => {
+  isViewportDragging = false;
+  // 视图拖动结束后保存
+  saveToLocalStorage();
+});
+
+document.addEventListener('wheel', e => {
+  e.preventDefault();
+  const speed = 0.1;
+  const mx = e.clientX - offsetX;
+  const my = e.clientY - offsetY;
+  const oldScale = scale;
+  scale += e.deltaY < 0 ? speed : -speed;
+  scale = Math.max(0.1, Math.min(scale, 10));
+  offsetX = e.clientX - mx * (scale / oldScale);
+  offsetY = e.clientY - my * (scale / oldScale);
+  updateViewport();
+  redrawAllConnections();
+  // 缩放后保存
+  saveToLocalStorage();
+});
+
+function updateViewport() {
+  viewport.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+}
+
+document.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  menuX = e.clientX;
+  menuY = e.clientY;
+  targetBox = e.target.closest('.box');
+
+  // 控制菜单显隐：
+  // 1. 创建框：仅空白处显示
+  createBoxItem.style.display = targetBox ? 'none' : 'block';
+  // 2. 连线/删除框：仅右键盒子时显示
+  connectBoxItem.style.display = targetBox ? 'block' : 'none';
+  deleteBoxItem.style.display = targetBox ? 'block' : 'none';
+  // 3. 单个盒子字体设置：仅右键盒子时显示
+  fontSettings.style.display = targetBox ? 'block' : 'none';
+  // 4. 全局字体设置：始终显示（空白/盒子都显示）
+  globalFontSettings.style.display = 'block';
+
+  contextMenu.style.left = menuX + 'px';
+  contextMenu.style.top = menuY + 'px';
+  contextMenu.style.display = 'block';
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#contextMenu')) {
+    contextMenu.style.display = 'none';
+    if (connectFrom) connectFrom.classList.remove('connecting');
+    connectFrom = null;
+  }
+});
+
+createBoxItem.addEventListener('click', () => {
+  saveHistory();
+  const box = document.createElement('div');
+  box.className = 'box';
+  box.contentEditable = true;
+  const l = (menuX - offsetX) / scale;
+  const t = (menuY - offsetY) / scale;
+  box.style.left = l + 'px';
+  box.style.top = t + 'px';
+  box.dataset.id = Date.now().toString(); // 确保ID唯一
+  const b = document.querySelector('.box');
+  if (b) {
+    box.style.fontSize = b.style.fontSize || '15px';
+    box.style.fontWeight = b.style.fontWeight || '400';
+    box.style.color = b.style.color || '#333';
+  }
+  viewport.appendChild(box);
+  makeDraggable(box);
+  contextMenu.style.display = 'none';
+  // 创建框后保存
+  saveToLocalStorage();
+});
+
+connectBoxItem.addEventListener('click', () => {
+  if (!targetBox) return;
+  if (!connectFrom) {
+    connectFrom = targetBox;
+    connectFrom.classList.add('connecting');
+  } else {
+    if (connectFrom !== targetBox) {
+      saveHistory();
+      // 存储ID而非DOM引用
+      connections.push({ 
+        fromId: connectFrom.dataset.id, 
+        toId: targetBox.dataset.id 
+      });
+      redrawAllConnections();
+      // 连线后保存
+      saveToLocalStorage();
+    }
+    connectFrom.classList.remove('connecting');
+    connectFrom = null;
+  }
+  contextMenu.style.display = 'none';
+});
+
+deleteBoxItem.addEventListener('click', () => {
+  if (!targetBox) return;
+  saveHistory();
+  // 根据ID过滤连线
+  const targetId = targetBox.dataset.id;
+  connections = connections.filter(c => c.fromId !== targetId && c.toId !== targetId);
+  targetBox.remove();
+  redrawAllConnections();
+  contextMenu.style.display = 'none';
+  // 删除框后保存
+  saveToLocalStorage();
+});
+
+undoBtn.addEventListener('click', () => {
+  undo();
+  contextMenu.style.display = 'none';
+});
+
+// 单个盒子字体设置逻辑（原有）
+fontSizeItem.addEventListener('click', () => {
+  if (!targetBox) return;
+  const v = prompt('字体大小（px）', targetBox.style.fontSize || '15');
+  if (v && !isNaN(parseInt(v))) {
+    saveHistory();
+    targetBox.style.fontSize = v + 'px';
+    // 修改字体后保存
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+fontWeightItem.addEventListener('click', () => {
+  if (!targetBox) return;
+  const v = prompt('粗细 100/400/700/900', targetBox.style.fontWeight || '400');
+  if (v && ['100','400','700','900'].includes(v)) {
+    saveHistory();
+    targetBox.style.fontWeight = v;
+    // 修改粗细后保存
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+fontColorItem.addEventListener('click', () => {
+  if (!targetBox) return;
+  const v = prompt('颜色 #ff0000 / red', targetBox.style.color || '#333');
+  if (v) {
+    saveHistory();
+    targetBox.style.color = v;
+    // 修改颜色后保存
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+
+// 新增：全局字体设置逻辑
+globalFontSize.addEventListener('click', () => {
+  const boxes = document.querySelectorAll('.box');
+  if (boxes.length === 0) {
+    alert('暂无盒子可修改！');
+    contextMenu.style.display = 'none';
+    return;
+  }
+  // 取第一个盒子的字体大小作为默认值
+  const defaultSize = boxes[0].style.fontSize || '15';
+  const v = prompt('全局字体大小（px）', defaultSize);
+  if (v && !isNaN(parseInt(v))) {
+    saveHistory();
+    boxes.forEach(box => {
+      box.style.fontSize = v + 'px';
+    });
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+
+globalFontWeight.addEventListener('click', () => {
+  const boxes = document.querySelectorAll('.box');
+  if (boxes.length === 0) {
+    alert('暂无盒子可修改！');
+    contextMenu.style.display = 'none';
+    return;
+  }
+  const defaultWeight = boxes[0].style.fontWeight || '400';
+  const v = prompt('全局字体粗细 100/400/700/900', defaultWeight);
+  if (v && ['100','400','700','900'].includes(v)) {
+    saveHistory();
+    boxes.forEach(box => {
+      box.style.fontWeight = v;
+    });
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+
+globalFontColor.addEventListener('click', () => {
+  const boxes = document.querySelectorAll('.box');
+  if (boxes.length === 0) {
+    alert('暂无盒子可修改！');
+    contextMenu.style.display = 'none';
+    return;
+  }
+  const defaultColor = boxes[0].style.color || '#333';
+  const v = prompt('全局字体颜色 #ff0000 / red', defaultColor);
+  if (v) {
+    saveHistory();
+    boxes.forEach(box => {
+      box.style.color = v;
+    });
+    saveToLocalStorage();
+  }
+  contextMenu.style.display = 'none';
+});
+
+function makeDraggable(el) {
+  let dragging = false;
+  let sx, sy, l, t;
+
+  el.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    dragging = true;
+    sx = e.clientX;
+    sy = e.clientY;
+    l = parseFloat(el.style.left) || 0;
+    t = parseFloat(el.style.top) || 0;
+    el.style.zIndex = 999;
+    saveHistory(); // 拖动前保存历史
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = (e.clientX - sx) / scale;
+    const dy = (e.clientY - sy) / scale;
+    let nl = l + dx;
+    let nt = t + dy;
+
+    // 磁吸逻辑
+    document.querySelectorAll('.box').forEach(b => {
+      if (b === el) return;
+      const bl = parseFloat(b.style.left)||0;
+      const bt = parseFloat(b.style.top)||0;
+      const br = bl + b.offsetWidth;
+      const bb = bt + b.offsetHeight;
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (Math.abs(nl - bl) < MAGNET_THRESHOLD) nl = bl;
+      if (Math.abs(nl + w - br) < MAGNET_THRESHOLD) nl = br - w;
+      if (Math.abs(nt - bt) < MAGNET_THRESHOLD) nt = bt;
+      if (Math.abs(nt + h - bb) < MAGNET_THRESHOLD) nt = bb - h;
+    });
+
+    el.style.left = nl + 'px';
+    el.style.top = nt + 'px';
+    redrawAllConnections();
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+    el.style.zIndex = '';
+    // 拖动结束后保存
+    saveToLocalStorage();
+  });
+}
+
+function redrawAllConnections() {
+  connectionLayer.innerHTML = '';
+  // 遍历连线（根据ID找DOM节点）
+  connections.forEach(c => {
+    const from = document.querySelector(`.box[data-id="${c.fromId}"]`);
+    const to = document.querySelector(`.box[data-id="${c.toId}"]`);
+    if (from && to) {
+      drawPath(from, to);
+    }
+  });
+}
+
+function getEdgePoint(from, to) {
+  const fx = parseFloat(from.style.left)||0;
+  const fy = parseFloat(from.style.top)||0;
+  const fw = from.offsetWidth;
+  const fh = from.offsetHeight;
+  const fcx = fx + fw/2;
+  const fcy = fy + fh/2;
+  const tcx = parseFloat(to.style.left) + to.offsetWidth/2;
+  const tcy = parseFloat(to.style.top) + to.offsetHeight/2;
+  const dx = tcx - fcx;
+  const dy = tcy - fcy;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? {x:fx+fw, y:fcy} : {x:fx, y:fcy};
+  } else {
+    return dy > 0 ? {x:fcx, y:fy+fh} : {x:fcx, y:fy};
+  }
+}
+
+function drawPath(from, to) {
+  const A = getEdgePoint(from, to);
+  const B = getEdgePoint(to, from);
+  const ax = offsetX + A.x * scale;
+  const ay = offsetY + A.y * scale;
+  const bx = offsetX + B.x * scale;
+  const by = offsetY + B.y * scale;
+  const path = `M ${ax} ${ay} L ${bx} ${by}`;
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p.setAttribute('d', path);
+  p.setAttribute('class', 'connection');
+  connectionLayer.appendChild(p);
+}
+
+// ===================== 新增：绑定导出/导入/清空事件 =====================
+exportBtn.addEventListener('click', exportData);
+
+importBtn.addEventListener('click', () => {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  fileInput.onchange = importData;
+  fileInput.click();
+});
+
+clearBtn.addEventListener('click', clearLocalData);
+
+// ===================== 初始化逻辑修改 =====================
+// 1. 初始化：给默认框分配唯一ID（仅当本地无数据时）
+if (!loadFromLocalStorage()) {
+  document.querySelectorAll('.box').forEach((b, i) => {
+    b.dataset.id = 'init-' + i;
+    makeDraggable(b);
+  });
+  saveHistory(); // 初始状态保存到历史
+  saveToLocalStorage(); // 初始状态保存到本地
+}
+
+updateViewport();
+redrawAllConnections();
+
+// 监听框内容修改（实时保存）
+document.addEventListener('input', (e) => {
+  if (e.target.classList.contains('box')) {
+    saveToLocalStorage();
+  }
+});
+</script>
+</body>
+</html>
