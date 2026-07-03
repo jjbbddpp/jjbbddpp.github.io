@@ -11,82 +11,87 @@
 <body>
   <h1>子域名收集</h1>
 
-  <p>
+ <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>子域名资产收集工具清单</title>
+    <style>
+        body { line-height: 1.8; font-size: 15px; padding: 20px; }
+        h3 { color: #c0392b; margin-top: 30px; }
+        p { margin: 6px 0; word-break: break-all; }
+    </style>
 
-利用Google提出的证书透明度（Certificate Transparency）查询公开的子域，一般查询结果包括域、签发者、有效期和签名等：
-    （1）crtsh：https://crt.sh/
-    （2）censys：https://censys.io/certificates
-    （3）spyse：https://spyse.com/search/certificate
-    （4）certspotter：https://sslmate.com/certspotter/api/
-    （5）entrust：https://www.entrust.com/ct-search/
-    （6）facebook：https://developers.facebook.com/tools/ct
-    （7）google：https://developers.facebook.com/tools/ct
+    <h3>利用Google提出的证书透明度（Certificate Transparency）查询公开的子域，一般查询结果包括域、签发者、有效期和签名等：</h3>
+    <p>（1）crtsh：https://crt.sh/</p>
+    <p>（2）censys：https://censys.io/certificates</p>
+    <p>（3）spyse：https://spyse.com/search/certificate</p>
+    <p>（4）certspotter：https://sslmate.com/certspotter/api/</p>
+    <p>（5）entrust：https://www.entrust.com/ct-search/</p>
+    <p>（6）facebook：https://developers.facebook.com/tools/ct</p>
+    <p>（7）google：https://developers.facebook.com/tools/ct</p>
 
- 利用DNS记录公开数据收集
-    （1）ip138：https://site.ip138.com/
-    （2）百度云观测：http://ce.baidu.com/index/getRelatedSites?site_address=baidu.com
-    （3）circl：https://www.circl.lu/services/passive-dns/#passive-dns
-    （4）hackertarget：https://hackertarget.com/find-dns-host-records/
-    （5）riddler：https://riddler.io/search?q=pld:baidu.com
-    （6）bufferover：https://dns.bufferover.run/dns?q=.baidu.com
-    （7）dnsdb：https://dnsdb.io/zh-cn/search?q=baidu.com
-    （8）ipv4info：http://ipv4info.com/
-    （9）robtex：https://www.robtex.com/dns-lookup/
-    （10）chinaz：https://alexa.chinaz.com/
-    （11）netcraft：https://searchdns.netcraft.com/
-    （12）securitytrails：https://docs.securitytrails.com/v1.0/reference#get-domain
-    （13）dnsdumpster：https://dnsdumpster.com/
-    （14）sitedossier：http://www.sitedossier.com/
-    （15）threatcrowd：https://www.threatcrowd.org/
-    （16）siterankdata：https://siterankdata.com/
-    （17）findsubdomains：https://findsubdomains.com/
+    <h3>利用DNS记录公开数据收集</h3>
+    <p>（1）ip138：https://site.ip138.com/</p>
+    <p>（2）百度云观测：http://ce.baidu.com/index/getRelatedSites?site_address=baidu.com</p>
+    <p>（3）circl：https://www.circl.lu/services/passive-dns/#passive-dns</p>
+    <p>（4）hackertarget：https://hackertarget.com/find-dns-host-records/</p>
+    <p>（5）riddler：https://riddler.io/search?q=pld:baidu.com</p>
+    <p>（6）bufferover：https://dns.bufferover.run/dns?q=.baidu.com</p>
+    <p>（7）dnsdb：https://dnsdb.io/zh-cn/search?q=baidu.com </p>
+    <p>（8）ipv4info：http://ipv4info.com/</p>
+    <p>（9）robtex：https://www.robtex.com/dns-lookup/ </p>
+    <p>（10）chinaz：https://alexa.chinaz.com/</p>
+    <p>（11）netcraft：https://searchdns.netcraft.com/ </p>
+    <p>（12）securitytrails：https://docs.securitytrails.com/v1.0/reference#get-domain</p>
+    <p>（13）dnsdumpster：https://dnsdumpster.com/</p>
+    <p>（14）sitedossier：http://www.sitedossier.com/</p>
+    <p>（15）threatcrowd：https://www.threatcrowd.org/</p>
+    <p>（16）siterankdata：https://siterankdata.com/</p>
+    <p>（17）findsubdomains：https://findsubdomains.com/</p>
 
- 威胁情报数据
-    （1）微步：https://x.threatbook.cn/
-    （2）alienvault：https://otx.alienvault.com/
-    （3）riskiq：https://www.riskiq.com/
-    （4）threatminer：https://www.threatminer.org/
-    （5）virustotal：https://www.virustotal.com/gui/home/search
+    <h3>威胁情报数据</h3>
+    <p>（1）微步：https://x.threatbook.cn/</p>
+    <p>（2）alienvault：https://otx.alienvault.com/</p>
+    <p>（3）riskiq：https://www.riskiq.com/</p>
+    <p>（4）threatminer：https://www.threatminer.org/</p>
+    <p>（5）virustotal：https://www.virustotal.com/gui/home/search</p>
 
-    安全类搜索引擎
-    （1）https://fofa.so/
-    （2）https://www.shodan.io/
-    （3）https://www.zoomeye.org/
-    （4）binaryedge：https://app.binaryedge.io/services/domains
+    <h3>安全类搜索引擎</h3>
+    <p>（1）https://fofa.so/</p>
+    <p>（2）https://www.shodan.io/</p>
+    <p>（3）https://www.zoomeye.org/</p>
+    <p>（4）binaryedge：https://app.binaryedge.io/services/domains</p>
 
-常规搜索引擎
-    （1）baidu
-    （2）bing
-    （3）google
-    （4）sougou
+    <h3>常规搜索引擎</h3>
+    <p>（1）baidu</p>
+    <p>（2）bing</p>
+    <p>（3）google</p>
+    <p>（4）sougou</p>
 
- 代码仓库
-    （1）gayhub：giithub
-    （2）阿里云代码托管：https://code.aliyun.com/
-    （3）码云：https://gitee.com/
+    <h3>代码仓库</h3>
+    <p>（1）gayhub：giithub</p>
+    <p>（2）阿里云代码托管：https://code.aliyun.com/</p>
+    <p>（3）码云：shturl.cc/oTOPb3S0</p>
 
- dns暴力破解工具
-    （1）subDomainsBrute：https://github.com/lijiejie/subDomainsBrute
-    （2）teemo：https://github.com/bit4woo/teemo
-    （3）Sublist3r：https://github.com/aboul3la/Sublist3r
-    （4）gobuster：https://github.com/OJ/gobuster
-    （5）assetfinder：https://github.com/tomnomnom/assetfinder
-    （6）Sudomy：https://github.com/Screetsec/Sudomy
+    <h3>dns暴力破解工具</h3>
+    <p>（1）subDomainsBrute：https://github.com/lijiejie/subDomainsBrute</p>
+    <p>（2）teemo：https://github.com/bit4woo/teemo</p>
+    <p>（3）Sublist3r：https://github.com/aboul3la/Sublist3r</p>
+    <p>（4）gobuster：https://github.com/OJ/gobuster</p>
+    <p>（5）assetfinder：https://github.com/tomnomnom/assetfinder</p>
+    <p>（6）Sudomy：https://github.com/Screetsec/Sudomy</p>
 
- 各种细节
-    （1）网站的crossdomain.xml文件和返回包中的Access-Control-Allow-Origin头
-    （2）返回包中的CSP（Content-Security-Policy）头
-    （3）网站robots文件
-    （4）网站sitemap文件
+    <h3>各种细节</h3>
+    <p>（1）网站的crossdomain.xml文件和返回包中的Access-Control-Allow-Origin头</p>
+    <p>（2）返回包中的CSP（Content-Security-Policy）头</p>
+    <p>（3）网站robots文件</p>
+    <p>（4）网站sitemap文件</p>
 
- 其他
-    （1）域传送漏洞
-    （2）js敏感信息泄露
+    <h3>其他</h3>
+    <p>（1）域传送漏洞</p>
+    <p>（2）js敏感信息泄露</p>
 
-    
-    
-  </p>
-  
   <!-- 加一个返回首页的按钮，方便阅读完返回 -->
   <a href="index.html"><button style="margin-top:20px; padding:8px 15px; cursor:pointer;">返回首页</button></a>
 </body>
