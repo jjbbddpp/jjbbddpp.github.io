@@ -1,0 +1,49 @@
+
+//浏览器控制台复制以下命令，可批量打开url
+
+var urls = [
+    "https://dayu.goofish.com",
+    "https://gamecenter.goofish.com",
+    "https://seller.goofish.com",
+    "https://umdc.goofish.com",
+    "https://m.goofish.com",
+    "https://page-cn.goofish.com",
+    "https://pre-passport.goofish.com",
+    "https://pre-www.goofish.com",
+    "https://idv.goofish.com",
+    "https://kuscia.goofish.com",
+    "https://pre-ssr-m.goofish.com",
+    "https://reviewcook.goofish.com",
+    "https://p.goofish.com",
+    "https://open.goofish.com",
+    "https://maneki-open.goofish.com",
+    "https://credit.goofish.com",
+    "https://shop-marketing.goofish.com",
+    "https://dev-g.goofish.com",
+    "https://fishopen.goofish.com",
+    "https://livepull.goofish.com", 
+    "https://g.goofish.com",
+    "https://stream-upload.goofish.com",
+    "https://jym.goofish.com",
+    "https://passport.goofish.com",
+    "https://video.goofish.com",
+    "https://survey.goofish.com",
+    "https://appeal.goofish.com",
+    "https://ifs.goofish.com",
+    "https://alimebot.goofish.com",
+    "https://pre-alimebot.goofish.com",
+    "https://sale.goofish.com",
+    "https://pre1-sale.goofish.com",
+    "https://goofish.com",
+    "https://api.goofish.com",
+    "https://author.goofish.com",
+    "https://terms.goofish.com",
+    "https://www.goofish.com",
+    "https://pages.goofish.com",
+    "https://fe.goofish.com"
+];
+
+// 这里修正了 Function 为 function
+urls.forEach(function(url){
+    window.open(url, '_blank');
+})；
